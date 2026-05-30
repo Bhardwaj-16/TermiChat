@@ -7,6 +7,13 @@ import random
 import string
 import time
 import os
+import asyncio
+import http.server
+import socketserver
+try:
+    import websockets
+except ImportError:
+    websockets = None
 
 HOST = "0.0.0.0"
 DEFAULT_PORT = 5555
@@ -19,10 +26,8 @@ invites = {}        # code -> {"room": str, "expires": float}
 lock    = threading.Lock()
 
 
-# ── Chat History Persistence ───────────────────────────────────────────────────
 
 def load_history():
-    """Loads history log safely from disk."""
     if not os.path.exists(HISTORY_FILE):
         return []
     try:
@@ -32,7 +37,6 @@ def load_history():
         return []
 
 def save_message_to_history(room, name, text, msg_type="chat"):
-    """Appends a new event payload straight to the historical JSON database without overwriting."""
     with lock:
         history = load_history()
         
@@ -54,14 +58,12 @@ def save_message_to_history(room, name, text, msg_type="chat"):
             print(f"[ERROR] Failed to write history file: {e}")
 
 def send_room_history(conn, room):
-    """Sends the last 50 room-specific history items back to a newly joined client."""
     history = load_history()
     room_history = [msg for msg in history if msg.get("room") == room]
     
     for msg in room_history[-50:]:
         send_json(conn, msg)
 
-# ── Utilities ──────────────────────────────────────────────────────────────────
 
 def timestamp():
     return datetime.datetime.now().strftime("%H:%M")
@@ -102,7 +104,6 @@ def broadcast_member_list(room):
         send_json(conn, {"type": "member_list", "room": room, "members": members})
 
 
-# ── Invite codes ───────────────────────────────────────────────────────────────
 
 def generate_code():
     chars = string.ascii_uppercase + string.digits
@@ -120,9 +121,6 @@ def purge_expired_codes():
             expired = [c for c, v in invites.items() if v["expires"] < now]
             for c in expired:
                 del invites[c]
-
-
-# ── Client handler ─────────────────────────────────────────────────────────────
 
 def handle_client(conn, addr):
     buffer = ""
@@ -294,9 +292,6 @@ def handle_message(conn, data):
         if info and info["room"]:
             send_member_list(conn, info["room"])
 
-
-# ── Room management ────────────────────────────────────────────────────────────
-
 def join_room(conn, room, is_refresh=False):
     with lock:
         info = clients.get(conn)
@@ -327,7 +322,6 @@ def join_room(conn, room, is_refresh=False):
     
     broadcast_member_list(room)
 
-
 def leave_room(conn, room):
     with lock:
         info = clients.get(conn)
@@ -348,7 +342,6 @@ def leave_room(conn, room):
     })
     broadcast_member_list(room)
 
-
 def disconnect(conn):
     with lock:
         info = clients.pop(conn, None)
@@ -360,7 +353,6 @@ def disconnect(conn):
                 if room in rooms and conn in rooms[room]:
                     rooms[room].remove(conn)
             
-            # Disconnections caused by internal code refresh cycles don't get logged
             sys_text = f"{name} disconnected"
             save_message_to_history(room, "", sys_text, "system")
             broadcast(room, {
@@ -372,12 +364,83 @@ def disconnect(conn):
             broadcast_member_list(room)
     conn.close()
 
+def start_http_server():
+    web_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "web")
+    if not os.path.exists(web_dir):
+        print(f"[HTTP] Web directory not found at {web_dir}")
+        return
+    
+    class SilentHandler(http.server.SimpleHTTPRequestHandler):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, directory=web_dir, **kwargs)
+        def log_message(self, format, *args):
+            pass # Suppress HTTP logs to keep terminal clean
+
+    try:
+        with socketserver.TCPServer(("0.0.0.0", 8000), SilentHandler) as httpd:
+            print("[HTTP] Web interface running on http://0.0.0.0:8000")
+            httpd.serve_forever()
+    except Exception as e:
+        print(f"[HTTP] Failed to start HTTP server: {e}")
+
+async def ws_proxy(websocket, path=None):
+    try:
+        reader, writer = await asyncio.open_connection('127.0.0.1', DEFAULT_PORT)
+    except Exception as e:
+        print(f"[WS] Failed to connect to TCP server: {e}")
+        return
+
+    async def tcp_to_ws():
+        try:
+            while True:
+                data = await reader.readline()
+                if not data:
+                    break
+                await websocket.send(data.decode('utf-8'))
+        except Exception:
+            pass
+        finally:
+            await websocket.close()
+
+    async def ws_to_tcp():
+        try:
+            async for message in websocket:
+                writer.write(message.encode('utf-8') + b'\n')
+                await writer.drain()
+        except Exception:
+            pass
+        finally:
+            writer.close()
+
+    await asyncio.gather(tcp_to_ws(), ws_to_tcp())
+
+async def serve_ws():
+    async with websockets.serve(ws_proxy, "0.0.0.0", 5556):
+        print("[WS] WebSocket proxy running on ws://0.0.0.0:5556")
+        await asyncio.Future()  # run forever
+
+def start_ws_proxy():
+    if websockets is None:
+        print("[WS] websockets library not found. Web interface WebSocket server will NOT start.")
+        print("[WS] Run `pip install websockets` to enable.")
+        return
+        
+    try:
+        asyncio.run(serve_ws())
+    except Exception as e:
+        print(f"[WS] Failed to start WebSocket server: {e}")
 
 def main():
     port = int(sys.argv[1]) if len(sys.argv) > 1 else DEFAULT_PORT
 
     t = threading.Thread(target=purge_expired_codes, daemon=True)
     t.start()
+    
+    # Start HTTP server for web interface
+    threading.Thread(target=start_http_server, daemon=True).start()
+    
+    # Start WS proxy
+    threading.Thread(target=start_ws_proxy, daemon=True).start()
 
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)

@@ -1,0 +1,7 @@
+[HTTP] Web interface running on http://0.0.0.0:8000
+Traceback (most recent call last):
+  File "/Users/bhardwajprasad/Desktop/TermiChat/server.py", line 464, in <module>
+    main()
+  File "/Users/bhardwajprasad/Desktop/TermiChat/server.py", line 447, in main
+    server.bind((HOST, port))
+OSError: [Errno 48] Address already in use

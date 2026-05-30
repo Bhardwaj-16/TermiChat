@@ -1,13 +1,18 @@
-# CORD — Terminal Chat
+# TermiChat
 
-Discord-style chat in the terminal. Black/silver theme. No browser needed.
+Safe terminal based chat application which uses port forwarding and saving chat history in local storage to create a  fast, safe and secure channel for communicating. 
+
+# Themes
+
+Black/silver theme.
+
 
 ---
 
-## Install dependencies
+##  dependencies
 
 ```bash
-pip install rich prompt_toolkit
+pip3 install rich prompt_toolkit websockets
 ```
 
 ---
@@ -18,7 +23,9 @@ pip install rich prompt_toolkit
 ```bash
 python server.py
 ```
-Default port is **5555**. You can pass a custom port:
+Default TCP port is **5555**. The server also starts a Web Interface at **http://localhost:8000** and a WebSocket proxy at port **5556**.
+
+You can pass a custom TCP port:
 ```bash
 python server.py 6000
 ```
@@ -72,4 +79,4 @@ client.py   — each user runs this to connect and chat
 
 - Host runs `python server.py` on their machine
 - Others connect using the host's local IP (e.g. `192.168.1.5`)
-- All must be on the same network (or use port forwarding for internet)
+- All must be on the same network

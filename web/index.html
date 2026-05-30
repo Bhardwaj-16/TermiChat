@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TermiChat Web</title>
+  <link rel="stylesheet" href="style.css">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div id="login-screen" class="screen">
+    <div class="login-box terminal-box">
+      <div class="ascii-art">
+      ░░░░  ░░░░  ░░░░  ░░░  
+      █     █  █  █  █  █  █ 
+      █     █  █  ███   █  █ 
+      ████  ████  █  █  ███  
+      </div>
+      <p class="subtitle">--- TERMINAL CHAT WEB ---</p>
+      <form id="login-form">
+        <div class="input-group">
+          <span class="prompt">Set Identity Handle ❯</span>
+          <input type="text" id="username" autocomplete="off" required maxlength="20">
+        </div>
+        <div class="input-group">
+          <span class="prompt">Host IP (Optional) ❯</span>
+          <input type="text" id="host" placeholder="localhost (leave empty for same host)" autocomplete="off">
+        </div>
+        <button type="submit" class="btn">CONNECT</button>
+      </form>
+    </div>
+  </div>
+
+  <div id="chat-screen" class="screen hidden">
+    <div class="terminal-container">
+      <div class="top-bar">
+        <span class="header-title">
+          <button type="button" id="sidebar-toggle" class="mobile-only">☰</button>
+          ⚡ CORD TERMINAL WEB
+        </span>
+        <span class="header-status">CHANNEL: <span id="current-room">DISCONNECTED</span></span>
+      </div>
+      
+      <div class="main-content">
+        <div class="chat-area">
+          <div id="messages"></div>
+        </div>
+        <div id="sidebar-overlay" class="sidebar-overlay"></div>
+        <div class="sidebar" id="sidebar">
+          <div class="sidebar-section">
+            <div class="sidebar-title">SERVERS</div>
+            <div class="sidebar-list" id="room-list"></div>
+          </div>
+          <div class="sidebar-section">
+            <div class="sidebar-title">MEMBERS (<span id="member-count">0</span>)</div>
+            <div class="sidebar-list" id="member-list"></div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="bottom-bar">
+        <div class="identity">Identity Profile: @<span id="identity-name"></span></div>
+        <div class="help-text">Type /help for commands</div>
+      </div>
+      
+      <form id="message-form" class="input-area">
+        <span class="prompt">Message ❯</span>
+        <input type="text" id="message-input" autocomplete="off" placeholder="Enter message or /help...">
+        <div class="emoji-wrapper">
+          <button type="button" id="emoji-btn" class="icon-btn">😀</button>
+          <div id="emoji-picker" class="hidden"></div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

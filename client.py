@@ -10,28 +10,26 @@ from prompt_toolkit import prompt
 from prompt_toolkit.styles import Style as PStyle
 from prompt_toolkit.patch_stdout import patch_stdout
 
-# ── ANSI Helpers (Discord Black & Silver White Palette) ────────────────────────
 ESC = "\033["
 
 def ansi(*codes):
     return ESC + ";".join(str(c) for c in codes) + "m"
 
-RESET         = ansi(0)
-BOLD          = ansi(1)
-DIM_S         = ansi(2)
-ITALIC        = ansi(3)
+RESET = ansi(0)
+BOLD = ansi(1)
+DIM_S = ansi(2)
+ITALIC = ansi(3)
 
-# Foreground Palette Tokens
-C_TEXT        = ansi(38, 5, 253)  # Bright Silver White
-C_NAME        = BOLD + ansi(38, 5, 255) # Pure High-Contrast White
-C_TIME        = ansi(38, 5, 242)  # Muted Chat Timestamp Gray
-C_SYSTEM      = ansi(38, 5, 245) + ITALIC # Medium Gray System Info
-C_ACCENT      = BOLD + ansi(38, 5, 45) # Discord Cyan/Blue Highlight Accent
-C_DIM         = ansi(38, 5, 243)  # Standard Label Gray
-C_BORDER      = ansi(38, 5, 237)  # Dark Silver Slate Border Wireframe
-C_CODE        = BOLD + ansi(38, 5, 214) # Invite Code Golden/Amber Amber
-C_ERROR       = BOLD + ansi(38, 5, 196) # Crimson Notification Danger Alert
-BG_SELECT     = ansi(48, 5, 238) + BOLD + ansi(38, 5, 214) # Interactive Scroll Select Token
+C_TEXT = ansi(38, 5, 253)
+C_NAME = BOLD + ansi(38, 5, 255)
+C_TIME = ansi(38, 5, 242)
+C_SYSTEM = ansi(38, 5, 245) + ITALIC
+C_ACCENT = BOLD + ansi(38, 5, 45)
+C_DIM = ansi(38, 5, 243)
+C_BORDER = ansi(38, 5, 237)
+C_CODE = BOLD + ansi(38, 5, 214)
+C_ERROR = BOLD + ansi(38, 5, 196)
+BG_SELECT = ansi(48, 5, 238) + BOLD + ansi(38, 5, 214)
 
 def cursor_to(row, col): return f"\033[{row};{col}H" 
 def clear_line():   return "\033[K" 
@@ -68,27 +66,24 @@ def trunc_visible(s, width):
             i += 1
     return result + RESET
 
-# ── Clean Discord Box Framing Elements ─────────────────────────────────────────
 H  = "─"
 V  = "│"
 TL = "┌"; TR = "┐"; BL = "└"; BR = "┘"
 VL = "├"; VR = "┤"; TT = "┬"; BT = "┴"
 
-# ── State ──────────────────────────────────────────────────────────────────────
 state = {
     "name":             "",
     "room":             None,
     "members":          [],
     "rooms":            [],
     "messages":         [],   
-    "raw_messages":     [],   # Untranslated structures used for structural deletions
+    "raw_messages":     [],
     "connected":        False,
     "selection_mode":   False,
     "selected_index":   -1,
 }
 state_lock = threading.Lock()
 
-# ── Message Builder ────────────────────────────────────────────────────────────
 
 def build_line(name, text, time_str, kind="chat"):
     if kind == "system":
@@ -114,7 +109,6 @@ def add_message_struct(msg_dict):
             state["messages"].pop(0)
     render_screen()
 
-# ── Direct Refresh Screen Draw Engine ──────────────────────────────────────────
 
 def term_size():
     try:
@@ -146,7 +140,6 @@ def render_screen():
     out.append("\033[?25l")
     current_row = 1
 
-    # ── Top Modern Platform Header Line Window ──────────────────────────────────
     active_channel = f"#{room}" if room else "DISCONNECTED"
     header_title   = f" ⚡ CORD TERMINAL "
     header_status  = f" CHANNEL: {active_channel} "
@@ -163,7 +156,6 @@ def render_screen():
     out.append(cursor_to(current_row, 1) + C_BORDER + VL + H * CHAT_W + TT + H * SIDE_W + VR + RESET + clear_line())
     current_row += 1
 
-    # ── Sidebar Right Column Buffer Content ────────────────────────────────────
     side_lines = []
     side_lines.append(C_DIM + "  SERVERS" + RESET)
     side_lines.append(C_BORDER + "  " + "╌" * (SIDE_W - 4) + RESET)
@@ -190,7 +182,6 @@ def render_screen():
     while len(side_lines) < BODY_H:
         side_lines.append("")
 
-    # ── Left Chat Main Core Log Window Area ─────────────────────────────────────
     visible_count = BODY_H
     visible_msgs  = msgs[-visible_count:] if len(msgs) >= visible_count else msgs
     chat_lines    = [""] * (visible_count - len(visible_msgs)) + visible_msgs
@@ -215,7 +206,6 @@ def render_screen():
         out.append(cursor_to(current_row, 1) + C_BORDER + V + RESET + chat_part + C_BORDER + V + RESET + side_part + C_BORDER + V + RESET + clear_line())
         current_row += 1
 
-    # ── Lower Layout Control Frame Panel Row ────────────────────────────────────
     out.append(cursor_to(current_row, 1) + C_BORDER + VL + H * CHAT_W + BT + H * SIDE_W + VR + RESET + clear_line())
     current_row += 1
     
@@ -240,7 +230,6 @@ def render_screen():
     sys.stdout.write("".join(out))
     sys.stdout.flush()
 
-# ── Help ──────────────────────────────────────────────────────────────────────
 
 def show_help():
     lines = [
@@ -258,7 +247,6 @@ def show_help():
     for text, kind in lines:
         add_message_struct({"type": kind, "text": text, "name": "", "time": ""})
 
-# ── Network ────────────────────────────────────────────────────────────────────
 
 class Client:
     def __init__(self, host, port, name):
@@ -349,8 +337,6 @@ class Client:
             if current_room == data.get("room"):
                 self.send({"type": "join_name", "room": current_room})
 
-# ── Interactive Delete Handlers ───────────────────────────────────────────────
-
 def enter_selection_mode(client: Client):
     with state_lock:
         msgs = list(state["raw_messages"])
@@ -375,12 +361,12 @@ def enter_selection_mode(client: Client):
                 ch2 = sys.stdin.read(1)
                 if ch2 == '[':
                     ch3 = sys.stdin.read(1)
-                    if ch3 == 'A':  # Arrow Up
+                    if ch3 == 'A':
                         with state_lock:
                             if state["selected_index"] > 0:
                                 state["selected_index"] -= 1
                         render_screen()
-                    elif ch3 == 'B':  # Arrow Down
+                    elif ch3 == 'B':
                         with state_lock:
                             if state["selected_index"] < len(state["raw_messages"]) - 1:
                                 state["selected_index"] += 1
@@ -408,14 +394,13 @@ def enter_selection_mode(client: Client):
                             state["raw_messages"].append({"type": "error", "text": "System metrics logs cannot be targeted for remote workspace removal.", "name": "", "time": ""})
                             state["messages"].append(build_line("", "System metrics logs cannot be targeted for remote workspace removal.", "", "error"))
                 break
-            elif ch1 == '\x03':  # Ctrl+C
+            elif ch1 == '\x03':
                 with state_lock: state["selection_mode"] = False
                 break
     finally:
         termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
     render_screen()
 
-# ── Input Loop ─────────────────────────────────────────────────────────────────
 
 def input_loop(client: Client):
     pt_style = PStyle.from_dict({
@@ -496,7 +481,6 @@ def input_loop(client: Client):
     sys.stdout.flush()
     print("Session disconnected. Goodbye.")
 
-# ── Boot Screen Setup Layout ───────────────────────────────────────────────────
 
 def boot_screen():
     sys.stdout.write("\033[H\033[2J")
